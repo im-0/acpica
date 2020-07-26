@@ -151,6 +151,7 @@
 
 /* Compile all complex data tables, signatures starting with L-Z */
 
+#include "actbinfo.h"
 #include "aslcompiler.h"
 
 #define _COMPONENT          DT_COMPILER
@@ -2158,6 +2159,179 @@ DtCompileUefi (
      * operators may be used.
      */
     DtCompileGeneric ((void **) PFieldList, NULL, NULL);
+    return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    DtCompileVfct
+ *
+ * PARAMETERS:  List                - Current field list pointer
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Compile VFCT.
+ *
+ *****************************************************************************/
+
+ACPI_STATUS
+DtCompileVfct (
+    void                    **List)
+{
+    DT_FIELD                **PFieldList = (DT_FIELD **) List;
+    DT_SUBTABLE             *Header;
+    ACPI_STATUS             Status;
+    int                     ImageType;
+    BOOLEAN                 HasLastImage[2] = {FALSE, FALSE};
+    DT_SUBTABLE             *ImageTypes[2] = {NULL, NULL};
+    DT_SUBTABLE             *ImageHeader;
+    size_t                  VBIOSTotalLength = 0;
+    UINT32                  VU32;
+    UINT32                  *PU32;
+    DT_SUBTABLE             *Image;
+
+    /* Table header */
+
+    Status = DtCompileTable (PFieldList, AcpiDmTableInfoVfctH, &Header);
+    if (ACPI_FAILURE (Status))
+    {
+        return (Status);
+    }
+    DtInsertSubtable (DtPeekSubtable (), Header);
+
+    /* Images */
+
+    while (*PFieldList)
+    {
+        /* Type of image */
+
+        if (strcmp ((*PFieldList)->Name, "Image type"))
+        {
+            DtFatal (ASL_MSG_INVALID_FIELD_NAME, *PFieldList, "Image type");
+            return (AE_ERROR);
+        }
+
+        if (!strcmp ((*PFieldList)->Value, "VBIOS"))
+        {
+            ImageType = 0;
+        }
+        else if (!strcmp ((*PFieldList)->Value, "LIB1"))
+        {
+            ImageType = 1;
+        }
+        else
+        {
+            DtFatal (ASL_MSG_INVALID_EXPRESSION, *PFieldList,
+                "Must be \"VBIOS\" or \"LIB1\"");
+            return (AE_ERROR);
+        }
+
+        if (HasLastImage[ImageType])
+        {
+            DtError (ASL_WARNING2, ASL_MSG_ENTRY_LIST, *PFieldList,
+                "Another image after zero-length image of this type");
+        }
+
+        if (!ImageTypes[ImageType])
+        {
+            ImageTypes[ImageType] = UtSubtableCacheCalloc ();
+        }
+
+        *PFieldList = (*PFieldList)->Next;
+
+        /* Image header */
+
+        Status = DtCompileTable (PFieldList, AcpiDmTableInfoVfctIH,
+            &ImageHeader);
+        if (ACPI_FAILURE (Status))
+        {
+            return (Status);
+        }
+        DtInsertSubtable (ImageTypes[ImageType], ImageHeader);
+
+        if (ImageType == 0)
+        {
+            VBIOSTotalLength += ImageHeader->Length;
+        }
+
+        /* Image */
+
+        if (*PFieldList &&
+                !strcmp ((*PFieldList)->Name, AcpiDmTableInfoVfctI[0].Name))
+        {
+            Status = DtCompileTable (PFieldList, AcpiDmTableInfoVfctI, &Image);
+            if (ACPI_FAILURE (Status))
+            {
+                return (Status);
+            }
+            DtInsertSubtable (ImageHeader, Image);
+
+            PU32 = ACPI_ADD_PTR (UINT32, ImageHeader->Buffer,
+                ACPI_VFCTIH_OFFSET (ImageLength));
+            ACPI_MOVE_32_TO_32 (PU32, &Image->Length);
+
+            if (ImageType == 0)
+            {
+                VBIOSTotalLength += Image->Length;
+            }
+        }
+        else
+        {
+            HasLastImage[ImageType] = TRUE;
+            memset (ImageHeader->Buffer, 0, ImageHeader->Length);
+        }
+    }
+
+    /* Fill offsets to images */
+
+    PU32 = ACPI_ADD_PTR (UINT32, Header->Buffer,
+        ACPI_VFCTH_OFFSET (VBIOSImageOffset));
+    if (ImageTypes[0])
+    {
+        if (!HasLastImage[0])
+        {
+            DtError (ASL_WARNING2, ASL_MSG_ENTRY_LIST, NULL,
+                "No terminating zero-length image for \"VBIOS\"");
+        }
+
+        DtInsertSubtable (Header, ImageTypes[0]);
+
+        VU32 = sizeof (ACPI_TABLE_HEADER) + sizeof (ACPI_VFCT_HEADER);
+    }
+    else
+    {
+        VU32 = 0;
+    }
+    ACPI_MOVE_32_TO_32 (PU32, &VU32);
+
+    PU32 = ACPI_ADD_PTR (UINT32, Header->Buffer,
+        ACPI_VFCTH_OFFSET (Lib1ImageOffset));
+    if (ImageTypes[1])
+    {
+        if (!HasLastImage[1])
+        {
+            DtError (ASL_WARNING2, ASL_MSG_ENTRY_LIST, NULL,
+                "No terminating zero-length image for \"LIB1\"");
+        }
+
+        DtInsertSubtable (Header, ImageTypes[1]);
+
+        VU32 = sizeof (ACPI_TABLE_HEADER) + sizeof (ACPI_VFCT_HEADER);
+        if (VBIOSTotalLength > ACPI_UINT32_MAX - VU32)
+        {
+            DtFatal (ASL_MSG_INTEGER_SIZE, NULL,
+                "Total length of VBIOS images is too big");
+            return (AE_ERROR);
+        }
+        VU32 += VBIOSTotalLength;
+    }
+    else
+    {
+        VU32 = 0;
+    }
+    ACPI_MOVE_32_TO_32 (PU32, &VU32);
+
     return (AE_OK);
 }
 

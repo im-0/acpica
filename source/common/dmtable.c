@@ -530,6 +530,7 @@ const ACPI_DMTABLE_DATA     AcpiDmTableData[] =
     {ACPI_SIG_TCPA, NULL,                   AcpiDmDumpTcpa, DtCompileTcpa,  TemplateTcpa},
     {ACPI_SIG_TPM2, AcpiDmTableInfoTpm2,    AcpiDmDumpTpm2, DtCompileTpm2,  TemplateTpm2},
     {ACPI_SIG_UEFI, AcpiDmTableInfoUefi,    NULL,           DtCompileUefi,  TemplateUefi},
+    {ACPI_SIG_VFCT, NULL,                   AcpiDmDumpVfct, DtCompileVfct,  TemplateVfct},
     {ACPI_SIG_VRTC, AcpiDmTableInfoVrtc,    AcpiDmDumpVrtc, DtCompileVrtc,  TemplateVrtc},
     {ACPI_SIG_WAET, AcpiDmTableInfoWaet,    NULL,           NULL,           TemplateWaet},
     {ACPI_SIG_WDAT, NULL,                   AcpiDmDumpWdat, DtCompileWdat,  TemplateWdat},

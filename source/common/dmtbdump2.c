@@ -2111,3 +2111,198 @@ NextSubtable:
             Subtable->Length);
     }
 }
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    AcpiDmDumpVfct
+ *
+ * PARAMETERS:  Table               - A VFCT table
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Format the contents of a VFCT. This is a variable-length
+ *              table that contains AMD Video BIOS images.
+ *
+ ******************************************************************************/
+
+void
+AcpiDmDumpVfct (
+    ACPI_TABLE_HEADER       *Table)
+{
+    typedef struct image_area_info
+    {
+        UINT32      Offset;
+        UINT32      Length;
+        const char  *ImageType;
+
+    } IMAGE_AREA_INFO;
+
+    ACPI_STATUS             Status;
+    ACPI_VFCT_HEADER        *Header =
+        ACPI_ADD_PTR (ACPI_VFCT_HEADER, Table, sizeof (*Table));
+
+    IMAGE_AREA_INFO         ImageAreas[3] =
+    {
+        {0, 0, NULL},
+        {0, 0, NULL},
+        {0, 0, NULL}
+    };
+    IMAGE_AREA_INFO         *ImageArea;
+
+    ACPI_VFCT_IMAGE_HEADER  *ImageHeader;
+
+    /* Table header */
+
+    Status = AcpiDmDumpTable (Table->Length, sizeof (*Table), Header,
+        sizeof (*Header), AcpiDmTableInfoVfctH);
+    if (ACPI_FAILURE (Status))
+    {
+        return;
+    }
+
+    /* Find blocks of images */
+
+    if (Header->VBIOSImageOffset && Header->Lib1ImageOffset)
+    {
+        if (Header->VBIOSImageOffset <= Header->Lib1ImageOffset)
+        {
+            ImageAreas[0].Offset = Header->VBIOSImageOffset;
+            ImageAreas[0].Length =
+                Header->Lib1ImageOffset - Header->VBIOSImageOffset;
+            ImageAreas[0].ImageType = "VBIOS";
+
+            ImageAreas[1].Offset = Header->Lib1ImageOffset;
+            ImageAreas[1].Length =
+                Table->Length - Header->Lib1ImageOffset;
+            ImageAreas[1].ImageType = "LIB1";
+        }
+        else
+        {
+            ImageAreas[0].Offset = Header->Lib1ImageOffset;
+            ImageAreas[0].Length =
+                Header->VBIOSImageOffset - Header->Lib1ImageOffset;
+            ImageAreas[0].ImageType = "LIB1";
+
+            ImageAreas[1].Offset = Header->VBIOSImageOffset;
+            ImageAreas[1].Length =
+                Table->Length - Header->VBIOSImageOffset;
+            ImageAreas[1].ImageType = "VBIOS";
+        }
+    }
+    else if (Header->VBIOSImageOffset)
+    {
+        ImageAreas[0].Offset = Header->VBIOSImageOffset;
+        ImageAreas[0].Length =
+            Table->Length - Header->VBIOSImageOffset;
+        ImageAreas[0].ImageType = "VBIOS";
+    }
+    else if (Header->Lib1ImageOffset)
+    {
+        ImageAreas[0].Offset = Header->Lib1ImageOffset;
+        ImageAreas[0].Length =
+            Table->Length - Header->Lib1ImageOffset;
+        ImageAreas[0].ImageType = "LIB1";
+    }
+
+    if (ImageAreas[0].Offset)
+    {
+        if (ImageAreas[0].Offset < sizeof (*Table) + sizeof (*Header))
+        {
+            AcpiOsPrintf (
+                "\n**** Images overlap table header "
+                "(image offset: 0x%8.8X)\n\n",
+                ImageAreas[0].Offset);
+            return;
+        }
+        else if (ImageAreas[0].Offset > sizeof (*Table) + sizeof (*Header))
+        {
+            AcpiOsPrintf (
+                "\n**** Unknown data between table header and images "
+                "(image offset: 0x%8.8X)\n\n",
+                ImageAreas[0].Offset);
+        }
+    }
+
+    /* Images */
+
+    for (ImageArea = ImageAreas; ImageArea->Offset; ImageArea++)
+    {
+        if (!ImageArea->Length)
+        {
+            AcpiOsPrintf (
+                "\n**** Offset to images is not zero, but length of images "
+                "is zero\n\n");
+        }
+
+        while (ImageArea->Length)
+        {
+            /* Type of image */
+
+            AcpiOsPrintf ("\n");
+            AcpiDmLineHeader (ImageArea->Offset, 0, "Image type");
+            AcpiOsPrintf ("\"%s\"\n", ImageArea->ImageType);
+
+            /* Image header */
+
+            ImageHeader = ACPI_ADD_PTR (ACPI_VFCT_IMAGE_HEADER, Table,
+                ImageArea->Offset);
+            Status = AcpiDmDumpTable (Table->Length, ImageArea->Offset,
+                ImageHeader, sizeof (*ImageHeader), AcpiDmTableInfoVfctIH);
+            if (ACPI_FAILURE (Status))
+            {
+                return;
+            }
+
+            /* Image */
+
+            if (ImageHeader->ImageLength)
+            {
+                Status = AcpiDmDumpTable (
+                    Table->Length, ImageArea->Offset + sizeof (*ImageHeader),
+                    Table, ImageHeader->ImageLength, AcpiDmTableInfoVfctI);
+                if (ACPI_FAILURE (Status))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                /* Image with zero length */
+
+                if (ImageHeader->PCIBus || ImageHeader->PCIDevice ||
+                        ImageHeader->PCIFunction || ImageHeader->VendorID ||
+                        ImageHeader->DeviceID || ImageHeader->SSVID ||
+                        ImageHeader->SSID || ImageHeader->Revision)
+                {
+                    AcpiOsPrintf (
+                        "\n**** Zero-length image entry contains non-zero "
+                        "fields\n\n");
+                }
+
+                if (ImageArea->Length == sizeof (*ImageHeader))
+                {
+                    break;
+                }
+                else
+                {
+                    AcpiOsPrintf (
+                        "\n**** Zero-length image entry is not at the end "
+                        "of table\n\n");
+                }
+            }
+
+            ImageArea->Offset +=
+                sizeof (*ImageHeader) + ImageHeader->ImageLength;
+            ImageArea->Length -=
+                sizeof (*ImageHeader) + ImageHeader->ImageLength;
+        }
+
+        if (!ImageArea->Length)
+        {
+            AcpiOsPrintf (
+                "\n**** Table of images is not terminated with zero-length "
+                "image entry\n\n");
+        }
+    }
+}

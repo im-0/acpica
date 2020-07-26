@@ -710,6 +710,10 @@ DtCompileUefi (
     void                    **PFieldList);
 
 ACPI_STATUS
+DtCompileVfct (
+    void                    **PFieldList);
+
+ACPI_STATUS
 DtCompileVrtc (
     void                    **PFieldList);
 
@@ -786,6 +790,7 @@ extern const unsigned char  TemplateStao[];
 extern const unsigned char  TemplateTcpa[];
 extern const unsigned char  TemplateTpm2[];
 extern const unsigned char  TemplateUefi[];
+extern const unsigned char  TemplateVfct[];
 extern const unsigned char  TemplateVrtc[];
 extern const unsigned char  TemplateWaet[];
 extern const unsigned char  TemplateWdat[];

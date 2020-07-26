@@ -1569,4 +1569,44 @@ ACPI_DMTABLE_INFO           AcpiDmTableInfoSdev1b[] =
     {ACPI_DMT_RAW_BUFFER, 0,                                        "Vendor Data", 0}, /*, DT_OPTIONAL}, */
     ACPI_DMT_TERMINATOR
 };
+
+
+/*******************************************************************************
+ *
+ * VFCT - AMD Video BIOS images
+ *
+ ******************************************************************************/
+
+ACPI_DMTABLE_INFO           AcpiDmTableInfoVfctH[] =
+{
+    {ACPI_DMT_UUID,     ACPI_VFCTH_OFFSET (TableUUID[0]),           "Table UUID", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTH_OFFSET (VBIOSImageOffset),       "Offset to first VBIOS block", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTH_OFFSET (Lib1ImageOffset),        "Offset to first LIB1 block", 0},
+    {ACPI_DMT_BUF16,    ACPI_VFCTH_OFFSET (Reserved[0]),            "Reserved", 0},
+    ACPI_DMT_TERMINATOR
+};
+
+/* Image header */
+
+ACPI_DMTABLE_INFO           AcpiDmTableInfoVfctIH[] =
+{
+    {ACPI_DMT_UINT32,   ACPI_VFCTIH_OFFSET (PCIBus),                "PCI Bus", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTIH_OFFSET (PCIDevice),             "PCI Device", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTIH_OFFSET (PCIFunction),           "PCI Function", 0},
+    {ACPI_DMT_UINT16,   ACPI_VFCTIH_OFFSET (VendorID),              "Vendor ID", 0},
+    {ACPI_DMT_UINT16,   ACPI_VFCTIH_OFFSET (DeviceID),              "Device ID", 0},
+    {ACPI_DMT_UINT16,   ACPI_VFCTIH_OFFSET (SSVID),                 "SSVID", 0},
+    {ACPI_DMT_UINT16,   ACPI_VFCTIH_OFFSET (SSID),                  "SSID", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTIH_OFFSET (Revision),              "Revision", 0},
+    {ACPI_DMT_UINT32,   ACPI_VFCTIH_OFFSET (ImageLength),           "Image length", 0},
+    ACPI_DMT_TERMINATOR
+};
+
+/* Image */
+
+ACPI_DMTABLE_INFO           AcpiDmTableInfoVfctI[] =
+{
+    {ACPI_DMT_RAW_BUFFER, 0,                                        "Image", 0},
+    ACPI_DMT_TERMINATOR
+};
 /*! [End] no source code translation !*/
